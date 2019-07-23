@@ -1,0 +1,1223 @@
+<!DOCTYPE>
+
+<html>
+
+	<head>
+	
+		<meta charset = "utf-8">
+		
+		<title>Cube Rush Chaos</title>
+		
+		<style>
+		
+			wrapper {
+				position: absolute;
+				top: 0%;
+				left: 0%;
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: black;
+			}
+			
+			container {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 720px;
+				height: 610px;
+				margin-top: -310px;
+				margin-left: -360px;
+/*				transform: scale(1.3);*/
+			}
+			
+			#map {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 720px;
+				height: 600px;
+				margin-top: -300px;
+				margin-left: -360px;
+			}
+			
+			#cube {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 720px;
+				height: 610px;
+				margin-top: -310px;
+				margin-left: -360px;
+			}
+		
+		</style>
+	
+	</head>
+	
+	<body>
+	
+		<wrapper>
+			
+			<container>
+		
+				<div id = "map"></div>
+
+				<canvas id = "cube" width = "720" height = "610"></canvas>
+				
+			</container>
+		
+		</wrapper>
+	
+	</body>
+	
+	<script>
+	
+		var map = {};
+		
+		map.container = document.getElementById("map");
+		
+		var cube = {};
+		
+		cube.canvas = document.getElementById("cube");
+		
+		cube.brush = cube.canvas.getContext("2d");
+		
+		// map 
+		
+		map.current_scheme = 0;
+		
+		map.color_schemes = [];
+		
+		map.color_schemes.push({
+			plane_color: "rgb(0 , 200 , 200)",
+			obstacle_color: "rgb(0 , 165 , 165)",
+			profile_color: "rgb(0 , 130 , 130)",
+		});
+		
+		map.color_schemes.push({
+			plane_color: "rgb(200 , 200 , 0)",
+			obstacle_color: "rgb(165 , 165 , 0)",
+			profile_color: "rgb(130 , 130 , 0)",
+		});
+		
+		map.color_schemes.push({
+			plane_color: "rgb(200 , 0 , 200)",
+			obstacle_color: "rgb(165 , 0 , 165)",
+			profile_color: "rgb(130 , 0 , 130)",
+		});
+		
+		map.model = {
+			size: {x: 8 , y: 8},
+			width: 90,
+			depth: 70,
+			plane_height: 20,
+			obstacle_height: 40,
+			plane_color: map.color_schemes[0].plane_color,
+			obstacle_color: map.color_schemes[0].obstacle_color,
+			profile_color: map.color_schemes[0].profile_color,
+		}
+		
+		map.grid = [];
+		
+		for (var i = 0; i < map.model.size.x; i++) {
+			
+			map.grid.push([]);
+			
+			for (var j = 0; j < map.model.size.y; j++) {
+				
+				let canvas = document.createElement("canvas");
+				
+				let brush = canvas.getContext("2d");
+				
+				canvas.style = "position: absolute; top: " + j * map.model.depth + "px; left: " + i * map.model.width + "px; width: " + map.model.width + "px; height: " + (map.model.depth + map.model.obstacle_height) + "px;";
+				
+				canvas.width = map.model.width;
+				
+				canvas.height = (map.model.depth + map.model.obstacle_height);
+				
+				map.container.appendChild(canvas);
+				
+				map.grid[i].push({
+					canvas: canvas,
+					brush: brush,
+					x: i * map.model.width,
+					y: j * map.model.depth + map.model.obstacle_height - map.model.plane_height,
+					top: j * map.model.depth,
+					left: i * map.model.width,
+					is_obstacle: false,
+					is_spikes: false,
+					is_portal: false,
+				});
+				
+			}
+			
+		}
+		
+		// trap testing
+		
+//		map.grid[3][3].is_obstacle = true;
+//		
+//		map.grid[5][3].is_spikes = true;
+		
+		// object cue
+		
+		map.current_level = 0; 
+		
+		map.levels = [];
+		
+		// cue testing
+		
+		map.levels.push({
+			portal: {
+				x: 0,
+				y: 0,
+			},
+			obstacles: [],
+			spikes: [],
+		});
+		
+		map.levels[0].obstacles.push({x: 1 , y: 1});
+		
+		map.levels[0].spikes.push({x: 2 , y: 2});
+		
+		map.levels.push({
+			portal: {
+				x: 7,
+				y: 7,
+			},
+			obstacles: [],
+			spikes: [],
+		});
+		
+		map.levels[1].obstacles.push({x: 3 , y: 3});
+		
+		map.levels[1].spikes.push({x: 2 , y: 2});
+		
+		// portal
+		
+		function initiate_portal () {
+			
+			// element
+			
+			var canvas = document.createElement("canvas");
+			
+			var brush = canvas.getContext("2d");
+			
+			map.portal = {
+				canvas: canvas,
+				brush: brush,
+				position: {
+					x: 0,
+					y: 0,
+				},
+				is_resetting: false,
+			};
+			
+			canvas.style = "position: absolute; top: 0px; left: 0px; width: " + map.model.width + "px; height: " + map.model.depth * 2 + "px; z-index: 99;";
+				
+			canvas.width = map.model.width;
+
+			canvas.height = map.model.depth * 2;
+			
+			map.container.appendChild(canvas);
+			
+			// animation
+
+			var center = {
+				x: 45,
+				y: 35 + map.model.obstacle_height - map.model.plane_height + map.model.depth - map.model.plane_height,
+			};
+			
+			var ticks = 0;
+			
+			var arces = [];
+			
+			var animation_buffering = false;
+			
+			var pulse = setInterval(function(){
+				
+				if (animation_buffering) return 0;
+				
+				animation_buffering = true;
+				
+				if (map.portal.is_resetting) {
+					
+					ticks = 0;
+					
+					arces = [];
+					
+				}
+				
+				brush.clearRect(0 , 0 , map.model.width , map.model.depth * 2);
+				
+				for (var i = 0; i < arces.length; i++) {
+				
+					brush.beginPath();
+					
+					brush.ellipse(center.x , center.y - arces[i].distance , 45 , 35 , Math.PI * 2 , 0 , Math.PI * 2);
+					
+					arces[i].distance = (arces[i].distance * 10 + arces[i].speed) / 10;
+					
+					if (arces[i].speed == 1) arces[i].fade++;
+					
+					if (arces[i].speed == 6) arces[i].fade--;
+					
+					brush.strokeStyle = "rgba(255 , 255 , 255 , " + arces[i].fade / 25 + ")";
+					
+					brush.lineWidth = 1.5;
+					
+					brush.stroke();
+					
+				}
+				
+				ticks = (ticks + 1) % 25;
+				
+				if (ticks == 0) {
+					
+					arces.push({
+						speed: 0,
+						distance: 0,
+						fade: 0,
+					});
+					
+					var full = false;
+					
+					for (var i = 0; i < arces.length; i++) {
+
+						arces[i].speed = arces[i].speed + 1;
+						
+						if (arces[i].speed == 7) full = true;
+
+					}
+					
+					if (full) arces.shift();
+					
+				}
+				
+				animation_buffering = false;
+				
+			} , 20);
+			
+		}
+		
+		initiate_portal();
+		
+		function set_portal (x , y) {
+			
+			for (var i = 0; i < map.grid.length; i++) {
+				
+				for (var j = 0; j < map.grid[i].length; j++) {
+					
+					map.grid[i][j].is_portal = false;
+					
+				}
+				
+			}
+			
+			map.portal.is_resetting = false;
+			
+			map.grid[x][y].is_portal = true;
+			
+			map.portal.canvas.style.top = (y - 1) * map.model.depth + map.model.obstacle_height - map.model.plane_height;
+			
+			map.portal.canvas.style.left = x * map.model.width
+			
+		}
+		
+		set_portal(0 , 0);
+		
+		// draw
+		
+		function draw_plane (canvas , brush) {
+			
+			var x = 0;
+			
+			var y = map.model.obstacle_height - map.model.plane_height;
+			
+			var cap = [
+				{x: x , y: y},
+				{x: x + map.model.width , y: y},
+				{x: x + map.model.width , y: y + map.model.depth},
+				{x: x , y: y + map.model.depth},
+			];
+			
+			var base = [];
+			
+			for (var i = 0; i < cap.length; i++) {
+				
+				base.push({
+					x: cap[i].x,
+					y: cap[i].y + map.model.plane_height,
+				});
+				
+			}
+			
+			// profile
+			
+			for (var i = 0; i < base.length; i++) {
+
+				brush.beginPath();
+
+				brush.moveTo(base[i].x , base[i].y);
+
+				brush.lineTo(base[(i + 1) % base.length].x , base[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[(i + 1) % base.length].x , cap[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[i].x , cap[i].y);
+
+				brush.lineTo(base[i].x , base[i].y);
+			
+				brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+
+				brush.fillStyle = map.color_schemes[map.current_scheme].profile_color;
+
+				brush.fill();
+
+				brush.stroke();
+
+			}
+			
+			// cap
+			
+			brush.beginPath();
+			
+			brush.moveTo(cap[0].x , cap[0].y);
+			
+			for (var i = 1; i < cap.length; i++) {
+				
+				brush.lineTo(cap[i].x , cap[i].y);
+				
+			}
+			
+			brush.lineTo(cap[0].x , cap[0].y);
+			
+			brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+			
+			brush.fillStyle = map.color_schemes[map.current_scheme].plane_color;
+			
+			brush.fill();
+			
+			brush.stroke();
+			
+		}
+		
+		function draw_obstacle (canvas , brush) {
+			
+			var x = 0;
+			
+			var y = 0;
+			
+			var cap = [
+				{x: x , y: y},
+				{x: x + map.model.width , y: y},
+				{x: x + map.model.width , y: y + map.model.depth},
+				{x: x , y: y + map.model.depth},
+			];
+			
+			var base = [];
+			
+			for (var i = 0; i < cap.length; i++) {
+				
+				base.push({
+					x: cap[i].x,
+					y: cap[i].y + map.model.obstacle_height,
+				});
+				
+			}
+			
+			// profile
+			
+			for (var i = 0; i < base.length; i++) {
+
+				brush.beginPath();
+
+				brush.moveTo(base[i].x , base[i].y);
+
+				brush.lineTo(base[(i + 1) % base.length].x , base[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[(i + 1) % base.length].x , cap[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[i].x , cap[i].y);
+
+				brush.lineTo(base[i].x , base[i].y);
+			
+				brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+
+				brush.fillStyle = map.color_schemes[map.current_scheme].profile_color;
+
+				brush.fill();
+
+				brush.stroke();
+
+			}
+			
+			// cap
+			
+			brush.beginPath();
+			
+			brush.moveTo(cap[0].x , cap[0].y);
+			
+			for (var i = 1; i < cap.length; i++) {
+				
+				brush.lineTo(cap[i].x , cap[i].y);
+				
+			}
+			
+			brush.lineTo(cap[0].x , cap[0].y);
+			
+			brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+			
+			brush.fillStyle = map.color_schemes[map.current_scheme].obstacle_color;
+			
+			brush.fill();
+			
+			brush.stroke();
+			
+		}
+		
+		function draw_spikes (canvas , brush) {
+			
+			for (var i = 0; i < 3; i++) {
+
+				for (var j = 0; j < 3; j++) {
+					
+					var adjust = map.model.obstacle_height - map.model.plane_height;
+
+					var center = {
+						x: 7.5 + 10 + i * 27.5,
+						y: 6.25 - 15 + j * 21.25 + adjust,
+					};
+
+					var base = [
+						{x: 7.5 + i * 27.5, y: 6.25 + j * 21.25 + adjust},
+						{x: 7.5 + i * 27.5 + 20, y: 6.25 + j * 21.25 + adjust},
+						{x: 7.5 + i * 27.5 + 20, y: 6.25 + j * 21.25 + 15 + adjust},
+						{x: 7.5 + i * 27.5, y: 6.25 + j * 21.25 + 15 + adjust},
+					];
+
+					for (var k = 0; k < base.length; k++) {
+
+						brush.beginPath();
+
+						brush.moveTo(base[k].x , base[k].y);
+
+						brush.lineTo(base[(k + 1) % base.length].x , base[(k + 1) % base.length].y);
+
+						brush.lineTo(center.x , center.y);
+
+						brush.lineTo(base[k].x , base[k].y);
+			
+						brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+
+						brush.fillStyle = "rgb(250 , 250 , 250)";
+
+						if (k == 2 || k == 3) brush.fillStyle = "rgb(220 , 220 , 220)";
+
+						brush.fill();
+
+						brush.stroke();
+
+					}
+
+				}
+
+			}
+			
+		}
+		
+		function draw_block (x , y) {
+			
+			var canvas = map.grid[x][y].canvas;
+			
+			var brush = map.grid[x][y].brush;
+			
+			brush.clearRect(0 , 0 , map.model.width , map.model.depth + map.model.obstacle_height);
+			
+			if (map.grid[x][y].is_obstacle) {
+				
+				draw_obstacle(canvas , brush)
+				
+			} else if (map.grid[x][y].is_spikes) {
+				
+				draw_plane(canvas , brush);
+				
+				draw_spikes(canvas , brush);
+				
+			} else if (map.grid[x][y].is_portal) {
+				
+				draw_plane(canvas , brush);
+				
+				set_portal(x , y);
+				
+			} else {
+				
+				draw_plane(canvas , brush);
+				
+			}
+			
+		}
+		
+		function initiate_map () {
+			
+			// portal
+			
+			map.portal.position.x = map.levels[map.current_level].portal.x;
+			
+			map.portal.position.y = map.levels[map.current_level].portal.y;
+			
+			map.grid[map.portal.position.x][map.portal.position.y].is_portal = true;
+			
+			// obstacle
+			
+			for (var i = 0; i < map.levels[map.current_level].obstacles.length; i++) {
+				
+				let index = map.levels[map.current_level].obstacles;
+				
+				map.grid[index[i].x][index[i].y].is_obstacle = true;
+				
+			}
+			
+			// spikes
+			
+			for (var i = 0; i < map.levels[map.current_level].spikes.length; i++) {
+				
+				let index = map.levels[map.current_level].spikes;
+				
+				map.grid[index[i].x][index[i].y].is_spikes = true;
+				
+			}
+			
+			// initiate
+			
+			for (var i = 0; i < map.grid.length; i++) {
+			
+				for (var j = 0; j < map.grid[i].length; j++) {
+					
+					draw_block(i , j);
+
+				}
+
+			}
+			
+		}
+		
+		initiate_map();
+		
+		function transform_map () {
+			
+			cube.stats.penalty = true;
+			
+			// reset
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+					
+					map.grid[i][j].is_obstacle = false;
+					
+					map.grid[i][j].is_spikes = false;
+					
+					map.grid[i][j].is_portal = false;
+
+				}
+
+			}
+			
+			// data
+			
+			map.current_level = (map.current_level + 1) % map.levels.length;
+			
+			map.current_scheme = (map.current_scheme + 1) % map.color_schemes.length;
+			
+			// portal
+							
+			map.portal.is_resetting = true;
+			
+			map.portal.position.x = map.levels[map.current_level].portal.x;
+			
+			map.portal.position.y = map.levels[map.current_level].portal.y;
+			
+			map.grid[map.portal.position.x][map.portal.position.y].is_portal = true;
+			
+			// obstacle
+			
+			for (var i = 0; i < map.levels[map.current_level].obstacles.length; i++) {
+				
+				let index = map.levels[map.current_level].obstacles;
+				
+				map.grid[index[i].x][index[i].y].is_obstacle = true;
+				
+			}
+			
+			// spikes
+			
+			for (var i = 0; i < map.levels[map.current_level].spikes.length; i++) {
+				
+				let index = map.levels[map.current_level].spikes;
+				
+				map.grid[index[i].x][index[i].y].is_spikes = true;
+				
+			}
+			
+			// transform
+			
+			var grid = [];
+			
+			for (var i = 0; i < map.model.size.x * 2 - 1; i++) {
+				
+				grid.push([]);
+				
+				for (var j = 0; j < map.model.size.y * 2 - 1; j++) {
+				
+					grid[i].push({
+						cued: false,
+					});
+
+				}
+				
+			}
+			
+			var seed = {
+				x: map.levels[(map.current_level - 1 + map.levels.length) % map.levels.length].portal.x,
+				y: map.levels[(map.current_level - 1 + map.levels.length) % map.levels.length].portal.y,
+			}
+			
+			var cue = [[seed]]; // not typo
+			
+			var count = 1;
+			
+			grid[seed.x][seed.y].cued = true;
+			
+			for (var i = 1; i < 1 + map.model.size.x + map.model.size.y; i++) {
+				
+				cue.push([]);
+				
+				for (var j = 0; j < cue[i - 1].length; j++) {
+					
+					let border = [
+						{x: cue[i - 1][j].x + 1 , y: cue[i - 1][j].y},
+						{x: cue[i - 1][j].x , y: cue[i - 1][j].y - 1},
+						{x: cue[i - 1][j].x - 1 , y: cue[i - 1][j].y},
+						{x: cue[i - 1][j].x , y: cue[i - 1][j].y + 1},
+					];
+					
+					for (var k = 0; k < border.length; k++) {
+						
+						let factor_x = (border[k].x >= 0 && border[k].x < map.model.size.x);
+					
+						let factor_y = (border[k].y >= 0 && border[k].y < map.model.size.y);
+						
+						if (factor_x && factor_y && !grid[border[k].x][border[k].y].cued) {
+							
+							cue[i].push({
+								x: border[k].x,
+								y: border[k].y,
+							});
+							
+							grid[border[k].x][border[k].y].cued = true;
+							
+							count++;
+							
+						}
+						
+					}
+						
+					if (count == map.model.size.x * map.model.size.y) break; 
+					
+				}
+						
+				if (count == map.model.size.x * map.model.size.y) break; 
+				
+			}
+			
+			// transform
+			
+			var ticks = [];
+			
+			for (var i = 0; i < cue.length; i++) ticks.push(0);
+			
+			var on_cue = [cue[0]];
+			
+			var current_cue = 1;
+			
+			var transform_buffering = false;
+			
+			var transform = setInterval(function(){
+				
+				if (transform_buffering) return false;
+				
+				transform_buffering = true;
+				
+				for (var i = 0; i < on_cue.length; i++) {
+					
+					if (ticks[i] < 100) {
+					
+//						ticks[i] = (ticks[i] * 10 + 10) / 10;
+						
+						ticks[i]++;
+						
+					} else {
+						
+						if (ticks[on_cue.length - 2] == 100) {
+							
+							clearInterval(transform);
+							
+							cube.stats.penalty = false;
+							
+						} 
+						
+						continue;
+						
+					}
+					
+					for (var j = 0; j < on_cue[i].length; j++) {
+						
+						let index = map.grid[on_cue[i][j].x][on_cue[i][j].y];
+						
+						if (ticks[i] == 50) {
+							
+							draw_block(on_cue[i][j].x , on_cue[i][j].y);
+							
+						}
+						
+						if (ticks[i] <= 50) {
+						
+							index.top = (index.top * 10 + 10) / 10;
+							
+							if (i == 0) {
+								
+								cube.stats.y++;
+								
+								update_cube();
+								
+							}
+							
+						} else {
+							
+							index.top = (index.top * 10 - 10) / 10;
+							
+							if (i == 0) {
+								
+								cube.stats.y--;
+								
+								update_cube();
+								
+							}
+							
+						}
+						
+						index.canvas.style.top = index.top + "px";
+						
+					}
+				
+					if (ticks[i] == 30) {
+
+						on_cue.push(cue[current_cue]);
+
+						current_cue++;
+
+					}
+					
+				}
+				
+				transform_buffering = false;
+				
+			} , 1);
+			
+		}
+		
+		// cube
+		
+		cube.stats = {
+			pos: {x: 5 , y: 5},
+			x: map.grid[5][5].x + map.model.width / 2,
+			y: map.grid[5][5].y + map.model.depth / 2 + 10,
+			width: 70,
+			depth: 50,
+			height: 40,
+			plane_color: "rgb(250 , 250 , 250)",
+			profile_color: "rgb(220 , 220 , 220)",
+			shadow_color: "gray",
+			direction: "none",
+			penalty: false,
+		}
+		
+		// draw 
+		
+		function update_cube () {
+			
+			cube.brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+			
+			cube.brush.clearRect(0 , 0 , 1000 , 1000);
+			
+			// body
+			
+			var x = cube.stats.x;
+			
+			var y = cube.stats.y;
+			
+			var xdis = cube.stats.width / 2;
+			
+			var ydis = cube.stats.depth / 2;
+			
+			var base = [{x: -xdis , y: -ydis} , {x: xdis , y: -ydis} , {x: xdis , y: ydis} , {x: -xdis , y: ydis}];
+			
+			var cap = [{x: -xdis , y: -ydis} , {x: xdis , y: -ydis} , {x: xdis , y: ydis} , {x: -xdis , y: ydis}];
+			
+			for (var i = 0; i < cap.length; i++) cap[i].y = cap[i].y - cube.stats.height;
+ 			
+			for (var i = 0; i < base.length; i++) {
+				
+				cube.brush.beginPath();
+				
+				cube.brush.moveTo(x + base[i].x , y + base[i].y);
+				
+				cube.brush.lineTo(x + base[(i + 1) % base.length].x , y + base[(i + 1) % base.length].y);
+				
+				cube.brush.lineTo(x + cap[(i + 1) % cap.length].x , y + cap[(i + 1) % cap.length].y);
+				
+				cube.brush.lineTo(x + cap[i].x , y + cap[i].y);
+				
+				cube.brush.lineTo(x + base[i].x , y + base[i].y);
+				
+				cube.brush.fillStyle = cube.stats.profile_color;
+				
+				cube.brush.fill();
+				
+				cube.brush.stroke();
+				
+			}
+				
+			cube.brush.beginPath();
+				
+			cube.brush.moveTo(x + cap[0].x , y + cap[0].y);
+			
+			for (var i = 1; i < cap.length; i++) {
+				
+				cube.brush.lineTo(x + cap[i].x , y + cap[i].y);
+				
+			}
+				
+			cube.brush.lineTo(x + cap[0].x , y + cap[0].y);
+				
+			cube.brush.fillStyle = cube.stats.plane_color;
+
+			cube.brush.fill();
+
+			cube.brush.stroke();
+			
+			// view obstruction
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+					
+					if (map.grid[i][j].is_obstacle) {
+						
+						var xdis = map.model.width;
+						
+						var ydis = map.model.obstacle_height - map.model.plane_height + 2;
+						
+						var x = map.grid[i][j].x;
+						
+						var y = map.grid[i][j].y - map.model.obstacle_height + map.model.plane_height + 9;
+						
+						cube.brush.clearRect(x , y , xdis , ydis);
+						
+					}
+
+				}
+
+			}
+			
+		}
+		
+		update_cube();
+		
+		// controls
+		
+		window.onkeydown = function(e) {
+			
+			if (e.keyCode != 37 && e.keyCode != 38 && e.keyCode != 39 && e.keyCode != 40 && e.keyCode != 32) {
+				
+				console.log("invalid command");
+				
+				return false;
+				
+			}
+			
+			if (e.keyCode == 32) {
+				
+				paused = !paused;
+				
+				console.log("paused = " + paused);
+				
+				return true;
+				
+			}
+			
+			if (cube.stats.penalty) {
+				
+				console.log("penalty in effect");
+				
+				return false;
+				
+			}
+			
+			if (!paused) {
+				
+				cube.stats.direction = e.keyCode;
+				
+				return true;
+				
+			}
+			
+		}
+		
+		// animation
+		
+		cube.bump_animation = function (direction) {
+			
+			var ticks = 0;
+
+			if (direction == 37 || direction == 39) ticks = 60;
+
+			if (direction == 38 || direction == 40) ticks = 60;
+
+			var animation_buffering = false;
+
+			var animation = setInterval(function(){
+
+				if (animation_buffering || paused) return 0;
+
+				animation_buffering = true;
+				
+				if (ticks > 50) {
+
+					if (direction == 37) cube.stats.x--;
+
+					if (direction == 38) cube.stats.y--;
+
+					if (direction == 39) cube.stats.x++;
+
+					if (direction == 40) cube.stats.y++;
+					
+				} else {
+					
+					if (direction == 37) cube.stats.x = (cube.stats.x * 10 + 2) / 10;
+
+					if (direction == 38) cube.stats.y = (cube.stats.y * 10 + 2) / 10;
+
+					if (direction == 39) cube.stats.x = (cube.stats.x * 10 - 2) / 10;
+
+					if (direction == 40) cube.stats.y = (cube.stats.y * 10 - 2) / 10;
+					
+					if (ticks > 25) {
+						
+						cube.stats.y = (cube.stats.y * 10 - 10) / 10;
+						
+					} else {
+						
+						cube.stats.y = (cube.stats.y * 10 + 10) / 10;
+						
+					}
+					
+				}
+
+				update_cube();
+
+				ticks--;
+
+				if (ticks <= 0) {
+
+					clearInterval(animation);
+
+					cube.stats.direction = "none";
+
+					cube.stats.penalty = false;
+
+				}
+
+				animation_buffering = false;
+
+			} , 1);
+			
+		}
+		
+		cube.move_animation = function (direction , enter_portal) {
+			
+			var speed = 2.5;
+			
+			var ticks = 0;
+			
+			if (direction == 37 || direction == 39) ticks = map.model.width / speed;
+
+			if (direction == 38 || direction == 40) ticks = map.model.depth / speed;
+			
+			var animation_buffering = false;
+			
+			var animation = setInterval(function(){
+				
+				if (animation_buffering || paused) return 0;
+				
+				animation_buffering = true;
+				
+				if (direction == 37) cube.stats.x = (cube.stats.x * 10 - speed * 10) / 10;
+
+				if (direction == 38) cube.stats.y = (cube.stats.y * 10 - speed * 10) / 10;
+
+				if (direction == 39) cube.stats.x = (cube.stats.x * 10 + speed * 10) / 10;
+
+				if (direction == 40) cube.stats.y = (cube.stats.y * 10 + speed * 10) / 10;
+				
+				update_cube();
+				
+				ticks--;
+				
+				if (ticks <= 0) {
+					
+					clearInterval(animation);
+
+					cube.stats.direction = "none";
+					
+					cube.stats.penalty = false;
+					
+					if (enter_portal) transform_map();
+					
+				}
+				
+				animation_buffering = false;
+				
+			} , 1);
+			
+		}
+		
+		cube.move = function (direction) {
+			
+			if (cube.stats.direction == "none") {
+				
+				return false;
+				
+			}
+			
+			cube.stats.penalty = true;
+			
+			// collision detect
+				
+			if (direction == 37) cube.stats.pos.x--;
+
+			if (direction == 38) cube.stats.pos.y--;
+
+			if (direction == 39) cube.stats.pos.x++;
+
+			if (direction == 40) cube.stats.pos.y++;
+			
+			if (map.grid[cube.stats.pos.x] == undefined) {
+				
+				if (direction == 37) cube.stats.pos.x++;
+
+				if (direction == 38) cube.stats.pos.y++;
+
+				if (direction == 39) cube.stats.pos.x--;
+
+				if (direction == 40) cube.stats.pos.y--;
+			
+				cube.stats.penalty = false;
+				
+				return false;
+				
+			} else if (map.grid[cube.stats.pos.x][cube.stats.pos.y] == undefined) {
+				
+				if (direction == 37) cube.stats.pos.x++;
+
+				if (direction == 38) cube.stats.pos.y++;
+
+				if (direction == 39) cube.stats.pos.x--;
+
+				if (direction == 40) cube.stats.pos.y--;
+			
+				cube.stats.penalty = false;
+				
+				return false;
+				
+			}
+			
+			if (map.grid[cube.stats.pos.x][cube.stats.pos.y].is_obstacle) {
+				
+				if (direction == 37) cube.stats.pos.x++;
+
+				if (direction == 38) cube.stats.pos.y++;
+
+				if (direction == 39) cube.stats.pos.x--;
+
+				if (direction == 40) cube.stats.pos.y--;
+				
+				cube.bump_animation(direction);
+				
+				return 0;
+				
+			} else if (map.grid[cube.stats.pos.x][cube.stats.pos.y].is_portal) {
+
+				cube.move_animation(direction , true);
+				
+			} else {
+			
+				// standard animation
+
+				cube.move_animation(direction , false);
+
+				return 0;
+				
+			}
+			
+		}
+		
+		// engine
+		
+		var buffering = false;
+		
+		var paused = false;
+		
+		var engine = setInterval(function(){
+			
+			if (buffering || paused) return false;
+			
+			buffering = true;
+			
+			if (!cube.stats.penalty) {
+				
+				cube.move(cube.stats.direction);
+				
+			}
+			
+			buffering = false;
+			
+		} , 1);
+		
+		function debug() {
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+
+					map.brush.beginPath();
+					
+					map.brush.arc(map.grid[i][j].x , map.grid[i][j].y , 3 , 0 , 3.1416);
+					
+					map.brush.fillStyle = "red";
+					
+					map.brush.fill();
+					
+				}
+
+			}
+			
+		}
+		
+//		debug();
+	
+	</script>
+
+</html>
