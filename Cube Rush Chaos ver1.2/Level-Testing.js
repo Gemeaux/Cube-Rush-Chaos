@@ -1,8 +1,8 @@
 (function my_level () {
 	
-	set_level_name("[place_holder]");
+	var level_name = "";
 	
-	set_level_devs("[place_holder]");
+	var dev_names = "";
 	
 	cube.set_cube(0 , 7);
 	
