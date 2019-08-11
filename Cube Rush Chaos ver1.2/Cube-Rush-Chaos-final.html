@@ -1,0 +1,2066 @@
+<!DOCTYPE>
+
+<html>
+
+	<head>
+	
+		<meta charset = "utf-8">
+		
+		<title>Cube Rush Chaos</title>
+		
+		<style>
+		
+			wrapper {
+				position: absolute;
+				top: 0%;
+				left: 0%;
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: black;
+			}
+			
+			container {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 800px;
+				height: 1000px;
+				margin-top: -500px;
+				margin-left: -400px;
+			}
+			
+			#map {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 720px;
+				height: 600px;
+				margin-top: -300px;
+				margin-left: -360px;
+			}
+			
+			#cube {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				width: 720px;
+				height: 650px;
+				margin-top: -350px;
+				margin-left: -360px;
+			}
+			
+			#menu {
+				position: absolute; 
+				top: 50%; left: 50%; 
+				width: 800px; 
+				height: 1000px; 
+				margin-top: -500px; 
+				margin-left: -400px; 
+				z-index: 99;
+			}
+			
+			#timer {
+				position: absolute; 
+				top: 50%; left: 50%; 
+				width: 800px; 
+				height: 1000px; 
+				margin-top: -500px; 
+				margin-left: -400px; 
+				z-index: 99;
+			}
+			
+			#transition {
+				position: absolute; 
+				top: 50%; left: 50%; 
+				width: 800px; 
+				height: 1000px; 
+				margin-top: -500px; 
+				margin-left: -400px; 
+				z-index: 100;
+			}
+		
+		</style>
+	
+	</head>
+	
+	<body>
+	
+		<wrapper>
+			
+			<container id = "container">
+		
+				<div id = "map"></div>
+
+				<canvas id = "cube" width = "720" height = "650"></canvas>
+				
+				<canvas id = "menu" width = "800" height = "1000"></canvas>
+				
+				<canvas id = "transition" width = "800" height = "1000"></canvas>
+				
+				<canvas id = "timer" width = "800" height = "1000"></canvas>
+				
+			</container>
+		
+		</wrapper>
+	
+	</body>
+	
+	<script src = "Levels.js"></script>
+	
+	<script>
+	
+		var map = {};
+		
+		map.container = document.getElementById("map");
+		
+		var cube = {};
+		
+		cube.canvas = document.getElementById("cube");
+		
+		cube.brush = cube.canvas.getContext("2d");
+		
+		// map 
+		
+		map.current_scheme = 0;
+		
+		map.color_schemes = [];
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(203 , 206 , 204)",
+			plane_color: "rgb(195 , 241 , 208)",
+			profile_color: "rgb(132 , 146 , 127)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(49 , 68 , 114)",
+			plane_color: "rgb(114 , 96 , 171)",
+			profile_color: "rgb(41 , 17 , 80)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(117 , 203 , 147)",
+			plane_color: "rgb(23 , 219 , 136)",
+			profile_color: "rgb(14 , 156 , 39)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(151 , 16 , 42)",
+			plane_color: "rgb(230 , 128 , 164)",
+			profile_color: "rgb(190 , 52 , 31)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(149 , 203 , 144)",
+			plane_color: "rgb(35 , 86 , 80)",
+			profile_color: "rgb(39 , 8 , 51)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(135 , 225 , 1)",
+			plane_color: "rgb(125 , 207 , 81)",
+			profile_color: "rgb(66 , 151 , 2)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(83 , 83 , 252)",
+			plane_color: "rgb(72 , 42 , 128)",
+			profile_color: "rgb(73 , 32 , 151)",
+		});
+		
+		map.color_schemes.push({
+			obstacle_color: "rgb(34 , 168 , 242)",
+			plane_color: "rgb(101 , 114 , 195)",
+			profile_color: "rgb(126 , 148 , 234)",
+		});
+		
+		map.model = {
+			size: {x: 8 , y: 8},
+			width: 90,
+			depth: 70,
+			plane_height: 20,
+			obstacle_height: 40,
+			plane_color: map.color_schemes[0].plane_color,
+			obstacle_color: map.color_schemes[0].obstacle_color,
+			profile_color: map.color_schemes[0].profile_color,
+		}
+		
+		map.grid = [];
+		
+		for (var i = 0; i < map.model.size.x; i++) {
+			
+			map.grid.push([]);
+			
+			for (var j = 0; j < map.model.size.y; j++) {
+				
+				let canvas = document.createElement("canvas");
+				
+				let brush = canvas.getContext("2d");
+				
+				canvas.style = "position: absolute; top: " + j * map.model.depth + "px; left: " + i * map.model.width + "px; width: " + map.model.width + "px; height: " + (map.model.depth + map.model.obstacle_height) + "px; z-index: " + j * 3 + ";";
+				
+				canvas.width = map.model.width;
+				
+				canvas.height = (map.model.depth + map.model.obstacle_height);
+				
+				map.container.appendChild(canvas);
+				
+				map.grid[i].push({
+					canvas: canvas,
+					brush: brush,
+					x: i * map.model.width,
+					y: j * map.model.depth + map.model.obstacle_height - map.model.plane_height,
+					top: j * map.model.depth,
+					left: i * map.model.width,
+					is_obstacle: false,
+					is_booster: false,
+					is_portal: false,
+				});
+				
+			}
+			
+		}
+		
+		// object cue
+		
+		var dev_tools = {
+			editing_level: -1,
+		}
+		
+		map.reset = function () {
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+					
+					map.grid[i][j].is_obstacle = false;
+					
+					map.grid[i][j].is_booster = false;
+					
+					map.grid[i][j].is_portal = false;
+
+				}
+
+			}
+			
+			map.current_level = 0; 
+
+			map.levels = [];
+
+			map.levels.push({
+				portal: {
+					x: 0,
+					y: 0,
+				},
+				obstacles: [],
+				booster: [],
+			});
+			
+			dev_tools.editing_level = -1;
+			
+		}
+		
+		map.reset();
+		
+		function create_portal (x , y) {
+			
+			dev_tools.editing_level = dev_tools.editing_level + 1;
+			
+			var level = dev_tools.editing_level;
+			
+			map.levels[level] = {
+				portal: {
+					x: x,
+					y: y,
+				},
+				obstacles: [],
+				booster: [],
+			};
+			
+		}
+		
+		function create_obstacle (x , y) {
+			
+			var level = dev_tools.editing_level;
+			
+			map.levels[level].obstacles.push({
+				x: x,
+				y: y,
+			});
+			
+		}
+		
+		function create_booster (x , y) {
+			
+			var level = dev_tools.editing_level;
+			
+			map.levels[level].booster.push({
+				x: x,
+				y: y,
+			});
+			
+		}
+		
+	</script>
+		
+	<script>
+		
+		// portal
+		
+		function initiate_portal () {
+			
+			// element
+			
+			var canvas = document.createElement("canvas");
+			
+			var brush = canvas.getContext("2d");
+			
+			map.portal = {
+				canvas: canvas,
+				brush: brush,
+				position: {
+					x: 0,
+					y: 0,
+				},
+				is_resetting: false,
+			};
+			
+			canvas.style = "position: absolute; top: 0px; left: 0px; width: " + map.model.width + "px; height: " + map.model.depth * 2 + "px; z-index: 99;";
+				
+			canvas.width = map.model.width;
+
+			canvas.height = map.model.depth * 2;
+			
+			map.container.appendChild(canvas);
+			
+			// animation
+
+			var center = {
+				x: 45,
+				y: 35 + map.model.obstacle_height - map.model.plane_height + map.model.depth - map.model.plane_height,
+			};
+			
+			var ticks = 0;
+			
+			var arces = [];
+			
+			var animation_buffering = false;
+			
+			var pulse = setInterval(function(){
+				
+				if (animation_buffering || paused) return 0;
+				
+				animation_buffering = true;
+				
+				if (map.portal.is_resetting) {
+					
+					ticks = 0;
+					
+					arces = [];
+					
+				}
+				
+				brush.clearRect(0 , 0 , map.model.width , map.model.depth * 2);
+				
+				for (var i = 0; i < arces.length; i++) {
+				
+					brush.beginPath();
+					
+					brush.ellipse(center.x , center.y - arces[i].distance , 45 , 35 , Math.PI * 2 , 0 , Math.PI * 2);
+					
+					arces[i].distance = (arces[i].distance * 10 + arces[i].speed) / 10;
+					
+					if (arces[i].speed == 1) arces[i].fade++;
+					
+					if (arces[i].speed == 6) arces[i].fade--;
+					
+					brush.strokeStyle = "rgba(255 , 255 , 255 , " + arces[i].fade / 25 + ")";
+					
+					brush.lineWidth = 2;
+					
+					brush.stroke();
+					
+				}
+				
+				ticks = (ticks + 1) % 25;
+				
+				if (ticks == 0) {
+					
+					arces.push({
+						speed: 0,
+						distance: 0,
+						fade: 0,
+					});
+					
+					var full = false;
+					
+					for (var i = 0; i < arces.length; i++) {
+
+						arces[i].speed = arces[i].speed + 1;
+						
+						if (arces[i].speed == 7) full = true;
+
+					}
+					
+					if (full) arces.shift();
+					
+				}
+				
+				animation_buffering = false;
+				
+			} , 20);
+			
+		}
+		
+		initiate_portal();
+		
+		function set_portal (x , y) {
+			
+			for (var i = 0; i < map.grid.length; i++) {
+				
+				for (var j = 0; j < map.grid[i].length; j++) {
+					
+					map.grid[i][j].is_portal = false;
+					
+				}
+				
+			}
+			
+			map.portal.is_resetting = false;
+			
+			map.grid[x][y].is_portal = true;
+			
+			map.portal.canvas.style.zIndex = (map.grid[x][y].canvas.style.zIndex - 0) + 2;
+			
+			map.portal.canvas.style.top = (y - 1) * map.model.depth + map.model.obstacle_height - map.model.plane_height;
+			
+			map.portal.canvas.style.left = x * map.model.width
+			
+		}
+		
+		// draw
+		
+		function draw_plane (canvas , brush) {
+			
+			var x = 0;
+			
+			var y = map.model.obstacle_height - map.model.plane_height;
+			
+			var cap = [
+				{x: x , y: y},
+				{x: x + map.model.width , y: y},
+				{x: x + map.model.width , y: y + map.model.depth},
+				{x: x , y: y + map.model.depth},
+			];
+			
+			var base = [];
+			
+			for (var i = 0; i < cap.length; i++) {
+				
+				base.push({
+					x: cap[i].x,
+					y: cap[i].y + map.model.plane_height,
+				});
+				
+			}
+			
+			// profile
+			
+			for (var i = 0; i < base.length; i++) {
+
+				brush.beginPath();
+
+				brush.moveTo(base[i].x , base[i].y);
+
+				brush.lineTo(base[(i + 1) % base.length].x , base[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[(i + 1) % base.length].x , cap[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[i].x , cap[i].y);
+
+				brush.lineTo(base[i].x , base[i].y);
+				
+				brush.lineWidth = 2;
+			
+				brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+
+				brush.fillStyle = map.color_schemes[map.current_scheme].profile_color;
+
+				brush.fill();
+
+				brush.stroke();
+
+			}
+			
+			// cap
+			
+			brush.beginPath();
+			
+			brush.moveTo(cap[0].x , cap[0].y);
+			
+			for (var i = 1; i < cap.length; i++) {
+				
+				brush.lineTo(cap[i].x , cap[i].y);
+				
+			}
+			
+			brush.lineTo(cap[0].x , cap[0].y);
+				
+			brush.lineWidth = 2;
+			
+			brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+			
+			brush.fillStyle = map.color_schemes[map.current_scheme].plane_color;
+			
+			brush.fill();
+			
+			brush.stroke();
+			
+		}
+		
+		function draw_obstacle (canvas , brush) {
+			
+			var x = 0;
+			
+			var y = 0;
+			
+			var cap = [
+				{x: x , y: y},
+				{x: x + map.model.width , y: y},
+				{x: x + map.model.width , y: y + map.model.depth},
+				{x: x , y: y + map.model.depth},
+			];
+			
+			var base = [];
+			
+			for (var i = 0; i < cap.length; i++) {
+				
+				base.push({
+					x: cap[i].x,
+					y: cap[i].y + map.model.obstacle_height,
+				});
+				
+			}
+			
+			// profile
+			
+			for (var i = 0; i < base.length; i++) {
+
+				brush.beginPath();
+
+				brush.moveTo(base[i].x , base[i].y);
+
+				brush.lineTo(base[(i + 1) % base.length].x , base[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[(i + 1) % base.length].x , cap[(i + 1) % base.length].y);
+
+				brush.lineTo(cap[i].x , cap[i].y);
+
+				brush.lineTo(base[i].x , base[i].y);
+				
+				brush.lineWidth = 2;
+			
+				brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+
+				brush.fillStyle = map.color_schemes[map.current_scheme].profile_color;
+
+				brush.fill();
+
+				brush.stroke();
+
+			}
+			
+			// cap
+			
+			brush.beginPath();
+			
+			brush.moveTo(cap[0].x , cap[0].y);
+			
+			for (var i = 1; i < cap.length; i++) {
+				
+				brush.lineTo(cap[i].x , cap[i].y);
+				
+			}
+			
+			brush.lineTo(cap[0].x , cap[0].y);
+				
+			brush.lineWidth = 2;
+			
+			brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+			
+			brush.fillStyle = map.color_schemes[map.current_scheme].obstacle_color;
+			
+			brush.fill();
+			
+			brush.stroke();
+			
+		}
+		
+		function draw_booster (canvas , brush) {
+					
+			var adjust = map.model.obstacle_height - map.model.plane_height;
+
+			var center = {
+				x: 45,
+				y: 35 + adjust - 5,
+			};
+			
+			// top
+			
+			brush.beginPath();
+			
+			brush.ellipse(center.x , center.y , 20 , 15 , Math.PI , 0 , Math.PI);
+			
+			brush.ellipse(center.x , center.y + 5 , 20 , 15 , Math.PI , Math.PI , 0 , true);
+			
+			brush.fillStyle = "rgb(250 , 250 , 250)";
+			
+			brush.fill();
+			
+			// profile
+			
+			brush.beginPath();
+			
+			brush.ellipse(center.x , center.y + 5 , 20 , 15 , Math.PI * 2 , 0 , Math.PI * 2);
+			
+			brush.fillStyle = "rgb(250 , 250 , 250)";
+			
+			brush.fill();
+			
+			brush.beginPath();
+			
+			brush.ellipse(center.x , center.y + 5 , 18 , 13 , Math.PI * 2 , 0 , Math.PI * 2);
+			
+			brush.fillStyle = "rgb(220 , 220 , 220)";
+			
+			brush.fill();
+			
+			// pins
+			
+			brush.beginPath();
+			
+			brush.moveTo(center.x , center.y + 5);
+			
+			brush.lineTo(center.x + 1 , center.y - 5);
+			
+			brush.moveTo(center.x , center.y + 5);
+			
+			brush.lineTo(center.x + 14 , center.y);
+			
+			brush.strokeStyle = "rgb(150 , 150 , 150)";
+			
+			brush.stroke();
+			
+		}
+		
+		function draw_block (x , y) {
+			
+			var canvas = map.grid[x][y].canvas;
+			
+			var brush = map.grid[x][y].brush;
+			
+			brush.clearRect(0 , 0 , map.model.width , map.model.depth + map.model.obstacle_height);
+			
+			if (map.grid[x][y].is_obstacle) {
+				
+				draw_obstacle(canvas , brush);
+				
+			} else if (map.grid[x][y].is_booster) {
+				
+				draw_plane(canvas , brush);
+				
+				draw_booster(canvas , brush);
+				
+			} else if (map.grid[x][y].is_portal) {
+				
+				draw_plane(canvas , brush);
+				
+				set_portal(x , y);
+				
+			} else {
+				
+				draw_plane(canvas , brush);
+				
+			}
+			
+		}
+		
+		function initiate_map () {
+			
+			// portal
+		
+			set_portal(map.levels[map.current_level].portal.x , map.levels[map.current_level].portal.y);
+			
+			map.portal.position.x = map.levels[map.current_level].portal.x;
+			
+			map.portal.position.y = map.levels[map.current_level].portal.y;
+			
+			map.grid[map.portal.position.x][map.portal.position.y].is_portal = true;
+			
+			// obstacle
+			
+			for (var i = 0; i < map.levels[map.current_level].obstacles.length; i++) {
+				
+				let index = map.levels[map.current_level].obstacles;
+				
+				map.grid[index[i].x][index[i].y].is_obstacle = true;
+				
+			}
+			
+			// booster
+			
+			for (var i = 0; i < map.levels[map.current_level].booster.length; i++) {
+				
+				let index = map.levels[map.current_level].booster;
+				
+				map.grid[index[i].x][index[i].y].is_booster = true;
+				
+			}
+			
+			// initiate
+			
+			for (var i = 0; i < map.grid.length; i++) {
+			
+				for (var j = 0; j < map.grid[i].length; j++) {
+					
+					draw_block(i , j);
+
+				}
+
+			}
+			
+			// set cube
+			
+			cube.set_cube(cube.stats.pos.x , cube.stats.pos.y);
+			
+		}
+		
+		function transform_map () {
+			
+			cube.stats.penalty = true;
+			
+			// reset
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+					
+					map.grid[i][j].is_obstacle = false;
+					
+					map.grid[i][j].is_booster = false;
+					
+					map.grid[i][j].is_portal = false;
+
+				}
+
+			}
+			
+			// data
+			
+			map.current_level = map.current_level + 1;
+			
+			if (map.current_level == map.levels.length) {
+				
+				timer.stop();
+				
+				game.game_over = true;
+				
+				return true;
+			}
+			
+//			map.current_scheme = (map.current_scheme + 1) % map.color_schemes.length;
+			
+			map.current_scheme = Math.floor(Math.random() * map.color_schemes.length);
+			
+			// portal
+							
+			map.portal.is_resetting = true;
+			
+			map.portal.position.x = map.levels[map.current_level].portal.x;
+			
+			map.portal.position.y = map.levels[map.current_level].portal.y;
+			
+			map.grid[map.portal.position.x][map.portal.position.y].is_portal = true;
+			
+			// obstacle
+			
+			for (var i = 0; i < map.levels[map.current_level].obstacles.length; i++) {
+				
+				let index = map.levels[map.current_level].obstacles;
+				
+				map.grid[index[i].x][index[i].y].is_obstacle = true;
+				
+			}
+			
+			// booster
+			
+			for (var i = 0; i < map.levels[map.current_level].booster.length; i++) {
+				
+				let index = map.levels[map.current_level].booster;
+				
+				map.grid[index[i].x][index[i].y].is_booster = true;
+				
+			}
+			
+			// transform
+			
+			var grid = [];
+			
+			for (var i = 0; i < map.model.size.x * 2 - 1; i++) {
+				
+				grid.push([]);
+				
+				for (var j = 0; j < map.model.size.y * 2 - 1; j++) {
+				
+					grid[i].push({
+						cued: false,
+					});
+
+				}
+				
+			}
+			
+			var seed = {
+				x: map.levels[(map.current_level - 1 + map.levels.length) % map.levels.length].portal.x,
+				y: map.levels[(map.current_level - 1 + map.levels.length) % map.levels.length].portal.y,
+			}
+			
+			var cue = [[seed]]; // not typo
+			
+			var count = 1;
+			
+			grid[seed.x][seed.y].cued = true;
+			
+			for (var i = 1; i < 1 + map.model.size.x + map.model.size.y; i++) {
+				
+				cue.push([]);
+				
+				for (var j = 0; j < cue[i - 1].length; j++) {
+					
+					let border = [
+						{x: cue[i - 1][j].x + 1 , y: cue[i - 1][j].y},
+						{x: cue[i - 1][j].x , y: cue[i - 1][j].y - 1},
+						{x: cue[i - 1][j].x - 1 , y: cue[i - 1][j].y},
+						{x: cue[i - 1][j].x , y: cue[i - 1][j].y + 1},
+					];
+					
+					for (var k = 0; k < border.length; k++) {
+						
+						let factor_x = (border[k].x >= 0 && border[k].x < map.model.size.x);
+					
+						let factor_y = (border[k].y >= 0 && border[k].y < map.model.size.y);
+						
+						if (factor_x && factor_y && !grid[border[k].x][border[k].y].cued) {
+							
+							cue[i].push({
+								x: border[k].x,
+								y: border[k].y,
+							});
+							
+							grid[border[k].x][border[k].y].cued = true;
+							
+							count++;
+							
+						}
+						
+					}
+						
+					if (count == map.model.size.x * map.model.size.y) break; 
+					
+				}
+						
+				if (count == map.model.size.x * map.model.size.y) break; 
+				
+			}
+			
+			// transform
+			
+			var ticks = [];
+			
+			for (var i = 0; i < cue.length; i++) ticks.push(0);
+			
+			var on_cue = [cue[0]];
+			
+			var current_cue = 1;
+			
+			var transform_buffering = false;
+			
+			var transform = setInterval(function(){
+				
+				if (transform_buffering || paused) return false;
+				
+				transform_buffering = true;
+				
+				for (var i = 0; i < on_cue.length; i++) {
+					
+					if (ticks[i] < 100) {
+						
+						ticks[i]++;
+						
+					} else {
+						
+						if (ticks[on_cue.length - 2] == 100) {
+							
+							clearInterval(transform);
+							
+							cube.stats.penalty = false;
+							
+						} 
+						
+						continue;
+						
+					}
+					
+					for (var j = 0; j < on_cue[i].length; j++) {
+						
+						let index = map.grid[on_cue[i][j].x][on_cue[i][j].y];
+						
+						if (ticks[i] == 50) {
+							
+							draw_block(on_cue[i][j].x , on_cue[i][j].y);
+							
+						}
+						
+						if (ticks[i] <= 50) {
+						
+							index.top = (index.top * 10 + 10) / 10;
+							
+							if (i == 0) {
+								
+								cube.stats.y++;
+								
+								cube.update_cube();
+								
+							}
+							
+						} else {
+							
+							index.top = (index.top * 10 - 10) / 10;
+							
+							if (i == 0) {
+								
+								cube.stats.y--;
+								
+								cube.update_cube();
+								
+							}
+							
+						}
+						
+						index.canvas.style.top = index.top + "px";
+						
+					}
+				
+					if (ticks[i] == 30) {
+
+						on_cue.push(cue[current_cue]);
+
+						current_cue++;
+
+					}
+					
+				}
+				
+				transform_buffering = false;
+				
+			} , 1);
+			
+		}
+		
+		// cube
+		
+		cube.stats = {
+			pos: {x: 5 , y: 5},
+			x: map.grid[5][5].x + map.model.width / 2,
+			y: map.grid[5][5].y + map.model.depth / 2 + 50,
+			width: 70,
+			depth: 50,
+			height: 40,
+			plane_color: "rgb(255 , 255 , 255)",
+			profile_color: "rgb(220 , 220 , 220)",
+			shadow_color: "gray",
+			direction: "none",
+			penalty: true,
+			z_index: 5 * 3 + 1,
+		}
+		
+		// draw 
+		
+		cube.update_cube = function () {
+			
+			cube.brush.strokeStyle = "rgba(255 , 255 , 255 , 0.5)";
+			
+			cube.brush.clearRect(0 , 0 , 1000 , 1000);
+			
+			// body
+			
+			var x = cube.stats.x;
+			
+			var y = cube.stats.y;
+			
+			var xdis = cube.stats.width / 2;
+			
+			var ydis = cube.stats.depth / 2;
+			
+			var base = [{x: -xdis , y: -ydis} , {x: xdis , y: -ydis} , {x: xdis , y: ydis} , {x: -xdis , y: ydis}];
+			
+			var cap = [{x: -xdis , y: -ydis} , {x: xdis , y: -ydis} , {x: xdis , y: ydis} , {x: -xdis , y: ydis}];
+			
+			for (var i = 0; i < cap.length; i++) cap[i].y = cap[i].y - cube.stats.height;
+ 			
+			for (var i = 0; i < base.length; i++) {
+				
+				cube.brush.beginPath();
+				
+				cube.brush.moveTo(x + base[i].x , y + base[i].y);
+				
+				cube.brush.lineTo(x + base[(i + 1) % base.length].x , y + base[(i + 1) % base.length].y);
+				
+				cube.brush.lineTo(x + cap[(i + 1) % cap.length].x , y + cap[(i + 1) % cap.length].y);
+				
+				cube.brush.lineTo(x + cap[i].x , y + cap[i].y);
+				
+				cube.brush.lineTo(x + base[i].x , y + base[i].y);
+				
+				cube.brush.fillStyle = cube.stats.profile_color;
+				
+				cube.brush.fill();
+				
+				cube.brush.stroke();
+				
+			}
+				
+			cube.brush.beginPath();
+				
+			cube.brush.moveTo(x + cap[0].x , y + cap[0].y);
+			
+			for (var i = 1; i < cap.length; i++) {
+				
+				cube.brush.lineTo(x + cap[i].x , y + cap[i].y);
+				
+			}
+				
+			cube.brush.lineTo(x + cap[0].x , y + cap[0].y);
+				
+			cube.brush.fillStyle = cube.stats.plane_color;
+
+			cube.brush.fill();
+
+			cube.brush.stroke();
+			
+			// view obstruction
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+					
+					if (map.grid[i][j].is_obstacle) {
+						
+						var xdis = map.model.width;
+						
+						var ydis = map.model.obstacle_height - map.model.plane_height + 2;
+						
+						var x = map.grid[i][j].x;
+						
+						var y = map.grid[i][j].top + 50;
+						
+						cube.brush.clearRect(x , y , xdis , ydis);
+						
+					}
+
+				}
+
+			}
+			
+		}
+		
+		// set cube 
+		
+		cube.set_cube = function (x , y) {
+			
+			cube.stats.pos.x = x;
+			
+			cube.stats.pos.y = y;
+		
+			cube.stats.z_index = y * 3 + 1;
+			
+			cube.canvas.style.zIndex = cube.stats.z_index;
+			
+			cube.stats.x = map.grid[x][y].x + map.model.width / 2;
+			
+			cube.stats.y = map.grid[x][y].y + map.model.depth / 2 + 50;
+			
+			cube.update_cube();
+			
+		}
+		
+		function set_cube (x , y) {
+			
+			cube.set_cube(x , y);
+			
+		}
+		
+		// animation
+		
+		cube.bump_animation = function (direction) {
+			
+			var ticks = 0;
+
+			if (direction == 37 || direction == 39) ticks = 60;
+
+			if (direction == 38 || direction == 40) ticks = 60;
+
+			var animation_buffering = false;
+
+			var animation = setInterval(function(){
+
+				if (animation_buffering || paused) return 0;
+
+				animation_buffering = true;
+				
+				if (ticks > 50) {
+
+					if (direction == 37) cube.stats.x--;
+
+					if (direction == 38) cube.stats.y--;
+
+					if (direction == 39) cube.stats.x++;
+
+					if (direction == 40) cube.stats.y++;
+					
+				} else {
+					
+					if (direction == 37) cube.stats.x = (cube.stats.x * 10 + 2) / 10;
+
+					if (direction == 38) cube.stats.y = (cube.stats.y * 10 + 2) / 10;
+
+					if (direction == 39) cube.stats.x = (cube.stats.x * 10 - 2) / 10;
+
+					if (direction == 40) cube.stats.y = (cube.stats.y * 10 - 2) / 10;
+					
+					if (ticks > 25) {
+						
+						cube.stats.y = (cube.stats.y * 10 - 10) / 10;
+						
+					} else {
+						
+						cube.stats.y = (cube.stats.y * 10 + 10) / 10;
+						
+					}
+					
+				}
+
+				cube.update_cube();
+
+				ticks--;
+
+				if (ticks <= 0) {
+
+					clearInterval(animation);
+
+					cube.stats.direction = "none";
+
+					cube.stats.penalty = false;
+
+				}
+
+				animation_buffering = false;
+
+			} , 1);
+			
+		}
+		
+		cube.move_animation = function (direction , enter_portal) {
+			
+			if (direction == 40) {
+				
+				cube.stats.zIndex = (map.grid[cube.stats.pos.x][cube.stats.pos.y].canvas.style.zIndex - 0) + 1;
+				
+				cube.canvas.style.zIndex = cube.stats.zIndex;
+				
+			}
+			
+			var speed = 2.5;
+			
+			var ticks = 0;
+			
+			if (direction == 37 || direction == 39) ticks = map.model.width / speed;
+
+			if (direction == 38 || direction == 40) ticks = map.model.depth / speed;
+			
+			var animation_buffering = false;
+			
+			var animation = setInterval(function(){
+				
+				if (animation_buffering || paused) return 0;
+				
+				animation_buffering = true;
+				
+				if (direction == 37) cube.stats.x = (cube.stats.x * 10 - speed * 10) / 10;
+
+				if (direction == 38) cube.stats.y = (cube.stats.y * 10 - speed * 10) / 10;
+
+				if (direction == 39) cube.stats.x = (cube.stats.x * 10 + speed * 10) / 10;
+
+				if (direction == 40) cube.stats.y = (cube.stats.y * 10 + speed * 10) / 10;
+				
+				cube.update_cube();
+				
+				ticks--;
+				
+				if (ticks <= 0) {
+					
+					clearInterval(animation);
+					
+					cube.stats.penalty = false;
+					
+					cube.stats.z_index = (map.grid[cube.stats.pos.x][cube.stats.pos.y].canvas.style.zIndex - 0) + 1;
+					
+					cube.canvas.style.zIndex = cube.stats.z_index;
+					
+					if (enter_portal) transform_map();
+					
+				}
+				
+				animation_buffering = false;
+				
+			} , 1);
+			
+		}
+		
+		cube.move = function (direction) {
+			
+			if (cube.stats.direction == "none") {
+				
+				return false;
+				
+			}
+			
+			cube.stats.direction = "none";
+			
+			cube.stats.penalty = true;
+			
+			// collision detect
+				
+			if (direction == 37) cube.stats.pos.x--;
+
+			if (direction == 38) cube.stats.pos.y--;
+
+			if (direction == 39) cube.stats.pos.x++;
+
+			if (direction == 40) cube.stats.pos.y++;
+			
+			if (map.grid[cube.stats.pos.x] == undefined) {
+				
+				if (direction == 37) cube.stats.pos.x++;
+
+				if (direction == 38) cube.stats.pos.y++;
+
+				if (direction == 39) cube.stats.pos.x--;
+
+				if (direction == 40) cube.stats.pos.y--;
+			
+				cube.stats.penalty = false;
+				
+				return false;
+				
+			} else if (map.grid[cube.stats.pos.x][cube.stats.pos.y] == undefined) {
+				
+				if (direction == 37) cube.stats.pos.x++;
+
+				if (direction == 38) cube.stats.pos.y++;
+
+				if (direction == 39) cube.stats.pos.x--;
+
+				if (direction == 40) cube.stats.pos.y--;
+			
+				cube.stats.penalty = false;
+				
+				return false;
+				
+			}
+			
+			if (map.grid[cube.stats.pos.x][cube.stats.pos.y].is_obstacle) {
+				
+				if (direction == 37) cube.stats.pos.x++;
+
+				if (direction == 38) cube.stats.pos.y++;
+
+				if (direction == 39) cube.stats.pos.x--;
+
+				if (direction == 40) cube.stats.pos.y--;
+				
+				cube.bump_animation(direction);
+				
+				return 0;
+				
+			} else if (map.grid[cube.stats.pos.x][cube.stats.pos.y].is_booster) {
+
+				cube.move_animation(direction , false);
+				
+				if (timer.time <= 1) {
+					
+					timer.time = 0;
+					
+				} else {
+					
+					timer.time = (timer.time * 100 - 100) / 100;
+					
+				}
+				
+				map.grid[cube.stats.pos.x][cube.stats.pos.y].is_booster = false;
+				
+				draw_block(cube.stats.pos.x , cube.stats.pos.y);
+				
+			} else if (map.grid[cube.stats.pos.x][cube.stats.pos.y].is_portal) {
+
+				cube.move_animation(direction , true);
+				
+			} else {
+			
+				// standard animation
+
+				cube.move_animation(direction , false);
+
+				return 0;
+				
+			}
+			
+		}
+		
+		// engine
+		
+		var buffering = false;
+		
+		var paused = false;
+		
+		var engine = setInterval(function(){
+			
+			if (buffering || paused || game.game_over) return false;
+			
+			buffering = true;
+			
+			if (!cube.stats.penalty) {
+				
+				cube.move(cube.stats.direction);
+				
+			}
+			
+			buffering = false;
+			
+		} , 1);
+		
+		function debug() {
+			
+			for (var i = 0; i < map.model.size.x; i++) {
+
+				for (var j = 0; j < map.model.size.y; j++) {
+
+					map.brush.beginPath();
+					
+					map.brush.arc(map.grid[i][j].x , map.grid[i][j].y , 3 , 0 , 3.1416);
+					
+					map.brush.fillStyle = "red";
+					
+					map.brush.fill();
+					
+				}
+
+			}
+			
+		}
+		
+//		debug();
+	
+	</script>
+	
+	<script>
+		
+		// timer 
+		
+		var timer = {
+			stopped: true,
+			time_stamp: 0,
+			time: 0.00,
+		};
+		
+		timer.canvas = document.getElementById("timer");
+		
+		timer.brush = timer.canvas.getContext("2d");
+		
+		timer.reset = function () {
+			
+			timer.time = 0;
+			
+		}
+		
+		timer.start = function () {
+			
+			if (!timer.stopped) return false;
+			
+			timer.time_stamp = new Date();
+			
+			timer.stopped = false;
+			
+		}
+		
+		timer.stop = function () {
+			
+			if (timer.stopped) return false;
+			
+			timer.stopped = true;
+			
+		}
+		
+		var clock_bufferring = false;
+		
+		timer.clock = setInterval(function(){
+			
+			if (clock_bufferring) return false;
+			
+			clock_bufferring = true;
+			
+			if (!timer.stopped && !paused) {
+
+				timer.time = (timer.time * 100 + 1) / 100;
+				
+			}
+				
+			var brush = timer.brush;
+			
+			if (game.selecting) {
+			
+				brush.beginPath();
+
+				brush.clearRect(0 , 0 , 800 , 250);
+
+				brush.textAlign = "center";
+
+				brush.font = "35px consolas";
+
+				brush.fillStyle = "rgb(255 , 255 , 255)";
+
+				brush.fillText(game.level_name , 400 , 140);
+
+				brush.font = "20px consolas";
+
+				brush.fillText("created by " + game.level_devs , 400 , 180);
+
+				clock_bufferring = false;
+				
+			} else {
+
+				brush.beginPath();
+
+				brush.clearRect(0 , 0 , 800 , 250);
+
+				brush.textAlign = "center";
+
+				brush.font = "40px consolas";
+
+				brush.fillStyle = "rgb(255 , 255 , 255)";
+
+				brush.fillText(timer.time.toFixed(2) , 400 , 175);
+
+				clock_bufferring = false;
+				
+			}
+			
+		} , 10);
+		
+		// presentation
+		
+		var game = {
+			selecting: true,
+			current_set: 0,
+			level_set: [],
+			level_name: "[place_holder]",
+			level_devs: "[place_holder]",
+			game_over: false,
+		}
+		
+		function set_level_name (str) {
+			
+			game.level_name = str;
+			
+		}
+		
+		function set_level_devs (str) {
+			
+			game.level_devs = str;
+			
+		}
+		
+		game.level_set.push(dev_level_1);
+		
+		game.level_set.push(dev_level_2);
+		
+		game.level_set.push(dev_level_3);
+		
+		game.start = function () {
+			
+			game.selecting = false;
+			
+			menu.brush.clearRect(0 , 0 , 800 , 1000);
+			
+			var ticks = 80;
+			
+			var animation_bufferring = false;
+			
+			var brush = timer.brush;
+			
+			var animation = setInterval(function(){
+				
+				if (animation_bufferring) return false;
+				
+				animation_bufferring = true;
+				
+				ticks--;
+				
+				brush.beginPath();
+				
+				brush.clearRect(0 , 250 , 800 , 350);
+				
+				if (ticks <= 20) {
+					
+					brush.textAlign = "center";
+
+					brush.font = "100px consolas";
+
+					brush.fillStyle = "rgba(255 , 255 , 255 , " + (20 - ticks) / 20 + ")";
+
+					brush.fillText("GO" , 400 , 500);
+			
+					cube.stats.penalty = false;
+					
+					timer.start();
+					
+					if (ticks == 0) {
+						
+						brush.clearRect(0 , 250 , 800 , 350);
+						
+						clearInterval(animation);
+						
+					}
+					
+				} else {
+
+					brush.textAlign = "center";
+
+					brush.font = "100px consolas";
+
+					brush.fillStyle = "rgba(255 , 255 , 255 , " + (20 - ticks % 20) / 20 + ")";
+
+					brush.fillText(Math.floor(ticks / 20) , 400 , 500);
+					
+				}
+				
+				animation_bufferring = false;
+				
+			} , 50);
+			
+		}
+		
+		game.restart = function () {
+					
+			timer.stop();
+			
+			transition.activated = true;
+			
+			cube.stats.penalty = true;
+			
+			var animation_buffer = false;
+			
+			var brush = transition.brush;
+			
+			var ticks = 160;
+			
+			var animation = setInterval(function(){
+				
+				if (animation_buffer) return false;
+				
+				animation_buffer = true;
+				
+				brush.beginPath();
+				
+				brush.clearRect(0 , 0 , 800 , 1000);
+				
+				for (var i = 0; i < 20; i++) {
+					
+					brush.rect(ticks * 10 - (20 - i) * 40 , i * 50 , 1600 , 50);
+					
+				}
+				
+				brush.fillStyle = "black";
+				
+				brush.fill();
+				
+				if (ticks == 0) {
+					
+					timer.reset();
+			
+					map.reset();
+
+					game.level_set[game.current_set]();
+
+					initiate_map();
+					
+					game.start();
+					
+				}
+					
+				ticks--;
+					
+				if (ticks == -160) {
+					
+					clearInterval(animation);
+					
+					transition.activated = false;
+					
+				}
+				
+				animation_buffer = false;
+				
+			} , 1);
+			
+		}
+		
+		game.give_up = function () {
+					
+			timer.stop();
+			
+			transition.activated = true;
+			
+			var animation_buffer = false;
+			
+			var brush = transition.brush;
+			
+			var ticks = 160;
+			
+			var animation = setInterval(function(){
+				
+				if (animation_buffer) return false;
+				
+				animation_buffer = true;
+				
+				brush.beginPath();
+				
+				brush.clearRect(0 , 0 , 800 , 1000);
+				
+				for (var i = 0; i < 20; i++) {
+					
+					brush.rect(ticks * 10 - (20 - i) * 40 , i * 50 , 1600 , 50);
+					
+				}
+				
+				brush.fillStyle = "black";
+				
+				brush.fill();
+				
+				if (ticks == 0) {
+					
+					timer.reset();
+					
+					game.selecting = true;
+		
+					menu.draw_main_menu();
+					
+				}
+					
+				ticks--;
+					
+				if (ticks == -160) {
+					
+					clearInterval(animation);
+					
+					transition.activated = false;
+					
+				}
+				
+				animation_buffer = false;
+				
+			} , 1);
+			
+		}
+		
+		// transition
+		
+		var transition = {};
+		
+		transition.activated = false;
+		
+		transition.canvas = document.getElementById("transition");
+		
+		transition.brush = transition.canvas.getContext("2d");
+		
+		transition.trigger = function () {
+			
+			transition.activated = true;
+			
+			var animation_buffer = false;
+			
+			var brush = transition.brush;
+			
+			var ticks = 160;
+			
+			var animation = setInterval(function(){
+				
+				if (animation_buffer) return false;
+				
+				animation_buffer = true;
+				
+				brush.beginPath();
+				
+				brush.clearRect(0 , 0 , 800 , 1000);
+				
+				for (var i = 0; i < 20; i++) {
+					
+					brush.rect(ticks * 10 - (20 - i) * 40 , i * 50 , 1600 , 50);
+					
+				}
+				
+				brush.fillStyle = "black";
+				
+				brush.fill();
+				
+				if (ticks > 0) {
+					
+					ticks--;
+					
+				} else {
+					
+					clearInterval(animation);
+					
+					transition.activated = false;
+					
+				}
+				
+				animation_buffer = false;
+				
+			} , 1);
+			
+		}
+	
+		// menu
+		
+		var menu = {};
+		
+		menu.canvas = document.getElementById("menu");
+		
+		menu.brush = menu.canvas.getContext("2d");
+		
+		menu.draw_main_menu = function () {
+					
+			cube.stats.penalty = true;
+			
+			menu.brush.clearRect(0 , 0 , 800 , 1000);
+			
+			// draw menu
+			
+			var brush = menu.brush;
+			
+			brush.beginPath();
+			
+			brush.textAlign = "center";
+			
+			brush.font = "30px consolas";
+			
+			brush.fillStyle = "rgb(255 , 255 , 255)";
+			
+			brush.fillText("❮          press enter to select          ❯" , 400 , 850);
+			
+			// input set data
+			
+			map.reset();
+			
+			game.level_set[game.current_set]();
+			
+			// initiate
+			
+			initiate_map();
+			
+		}
+		
+		menu.draw_main_menu();
+		
+		menu.draw_pause_menu = function (dispo) {
+			
+			var brush = menu.brush;
+			
+			brush.clearRect(0 , 0 , 800 , 1000);
+			
+			brush.beginPath();
+			
+			brush.rect(250 , 360 + dispo , 300 , 250);
+			
+			brush.fillStyle = "black";
+			
+			brush.fill();
+			
+			// options
+			
+			brush.textAlign = "center";
+			
+			brush.font = "30px consolas";
+			
+			brush.fillStyle = "rgb(255 , 255 , 255)";
+			
+			brush.fillText("(R) Restart" , 400 , 450 + dispo);
+			
+			brush.fillText("(G) Give Up" , 400 , 530 + dispo);
+			
+		}
+		
+		menu.initiate_pause_menu = function () {
+			
+			var disposition = 750;
+			
+			var pause_menu_buffer = false;
+			
+			var pause_menu = setInterval(function(){
+				
+				if (pause_menu_buffer || game.game_over) return false;
+				
+				pause_menu_buffer = true;
+				
+				if (paused) {
+					
+					if (disposition > 0) disposition = disposition - 10;
+					
+					menu.draw_pause_menu(disposition);
+					
+				} else {
+					
+					if (disposition < 750) {
+						
+						disposition = disposition + 10;
+						
+						menu.draw_pause_menu(disposition);
+						
+					}
+					
+				}
+				
+				pause_menu_buffer = false;
+				
+			} , 1);
+			
+		}
+		
+		menu.initiate_pause_menu();
+		
+		// result menu
+		
+		menu.draw_result_menu = function (dispo) {
+			
+			var brush = menu.brush;
+			
+			brush.clearRect(0 , 0 , 800 , 1000);
+			
+			brush.beginPath();
+			
+			brush.rect(250 , 310 + dispo , 300 , 310);
+			
+			brush.fillStyle = "black";
+			
+			brush.fill();
+			
+			// options
+			
+			brush.textAlign = "center";
+			
+			brush.font = "30px consolas";
+			
+			brush.fillStyle = "rgb(255 , 255 , 255)";
+			
+			brush.fillText("Results" , 400 , 380 + dispo);
+			
+			brush.fillText("Time: " + timer.time.toFixed(2) , 400 , 440 + dispo);
+			
+			brush.fillText("(R) Retry" , 400 , 500 + dispo);
+			
+			brush.fillText("(M) Menu " , 400 , 560 + dispo);
+			
+		}
+		
+		menu.initiate_result_menu = function () {
+			
+			var disposition = 750;
+			
+			var pause_menu_buffer = false;
+			
+			var pause_menu = setInterval(function(){
+				
+				if (pause_menu_buffer) return false;
+				
+				pause_menu_buffer = true;
+				
+				if (game.game_over) {
+					
+					if (disposition > 0) disposition = disposition - 10;
+					
+					menu.draw_result_menu(disposition);
+					
+				} else {
+					
+					if (disposition < 750) {
+						
+						disposition = disposition + 10;
+						
+						menu.draw_result_menu(disposition);
+						
+					}
+					
+				}
+				
+				pause_menu_buffer = false;
+				
+			} , 1);
+			
+		}
+		
+		menu.initiate_result_menu();
+	
+	</script>
+	
+	<script>
+		
+		// controls
+		
+		var key_pressed = false;
+		
+		window.onkeydown = function(e) {
+			
+			if (key_pressed) return false;
+			
+			key_pressed = true;
+			
+			if (game.game_over) {
+				
+				if (e.keyCode == 82) {
+					
+					game.game_over = false;
+					
+					game.restart();
+					
+				}
+				
+				if (e.keyCode == 77) {
+					
+					game.game_over = false;
+					
+					game.give_up();
+					
+				}
+				
+			}
+			
+			if (game.selecting) {
+				
+				var length = game.level_set.length;
+				
+				if (e.keyCode == 37) {
+					
+					game.current_set = (game.current_set + length - 1) % length;
+		
+					menu.draw_main_menu();
+				
+					return true;
+					
+				}
+				
+				if (e.keyCode == 39) {
+					
+					game.current_set = (game.current_set + length + 1) % length;
+		
+					menu.draw_main_menu();
+				
+					return true;
+					
+				}
+				
+				if (e.keyCode == 13) {
+					
+					game.start();
+				
+					return true;
+					
+				}
+				
+			}
+			
+			if (paused) {
+				
+				if (e.keyCode == 82) {
+					
+					paused = false;
+					
+					game.restart();
+					
+				}
+				
+				if (e.keyCode == 71) {
+					
+					paused = false;
+					
+					game.give_up();
+					
+				}
+				
+			}
+			
+			if (e.keyCode == 80 && !game.selecting && !game.game_over) {
+				
+				paused = !paused;
+				
+				return true;
+				
+			}
+			
+			if (cube.stats.penalty) {
+				
+				return true;
+				
+			}
+			
+			if (!paused) {
+				
+				if (e.keyCode == 37 || e.keyCode == 38 || e.keyCode == 39 || e.keyCode == 40) {
+				
+					cube.stats.direction = e.keyCode;
+					
+				}
+				
+				return true;
+				
+			}
+			
+		}
+		
+		window.onkeyup = function (e) {
+			
+			key_pressed = false;
+			
+		}
+	
+	</script>
+	
+	<script>
+	
+		var container = document.getElementById("container");
+		
+		if ((window.screen.height / window.screen.width) < (1000 / 800)) {
+			
+			container.style.transform = "scale(" + (window.screen.height / 1000) + ")";
+			
+		} else {
+			
+			container.style.transform = "scale(" + (window.screen.width / 800) + ")";
+			
+		}
+	
+		console.log(window.screen.height , window.screen.width , window.devicePixelRatio);
+		
+	</script>
+
+</html>
