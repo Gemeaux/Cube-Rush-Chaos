@@ -1,3 +1,17 @@
+function dev_level_0 () {
+	
+	set_level_name("[place_holder]");
+	
+	set_level_devs("[place_holder]");
+	
+	cube.set_cube(7 , 7);
+	
+	// level 1
+
+	create_portal(6 , 7);
+	
+}
+
 function dev_level_1 () {
 	
 	set_level_name("[place_holder]");
